@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автотест решения системы линейных уравнений</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input { width: 50px; margin: 5px; }
+        .matrix, .results { margin-bottom: 20px; display: inline-block; vertical-align: top; }
+        button { padding: 10px 20px; margin-top: 10px; }
+        .output { margin-top: 20px; }
+        .matrix-label { display: inline-block; width: 30px; text-align: right; }
+        .system-container { display: flex; align-items: center; }
+        .equation { display: flex; align-items: center; margin-bottom: 10px; }
+        .equals { margin: 0 10px; }
+    </style>
+</head>
+<body>
+    <h1>Автотест для решения системы линейных уравнений методом Крамера</h1>
+    <div>
+        <label for="matrixSize">Размер матрицы (n x n): </label>
+        <input type="number" id="matrixSize" value="2" min="2" max="10">
+        <button onclick="generateMatrix()">Создать матрицу</button>
+    </div>
+    <div class="system-container" id="systemContainer"></div>
+    <button onclick="solveSystem()">Решить</button>
+    <div class="output" id="output"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script>
+        function generateMatrix() {
+            const n = document.getElementById('matrixSize').value;
+            const systemContainer = document.getElementById('systemContainer');
+            systemContainer.innerHTML = '';
+            for (let i = 0; i < n; i++) {
+                const equation = document.createElement('div');
+                equation.className = 'equation';
+                for (let j = 0; j < n; j++) {
+                    equation.innerHTML += `<input type="text" id="a${i}${j}" placeholder="a${i}${j}">` +
+                                          ` x<sub>${j}</sub> `;
+                    if (j < n - 1) {
+                        equation.innerHTML += ' + ';
+                    }
+                }
+                equation.innerHTML += '<span class="equals">=</span>';
+                equation.innerHTML += `<input type="text" id="b${i}" placeholder="Результат">`;
+                systemContainer.appendChild(equation);
+            }
+        }
+
+        function parseComplex(input) {
+            const regex = /^([+-]?\d*\.?\d*)([+-]\d*\.?\d*)i$/;
+            const match = input.match(regex);
+            if (match) {
+                const real = parseFloat(match[1]) || 0;
+                const imag = parseFloat(match[2]) || 0;
+                return math.complex(real, imag);
+            }
+            return math.complex(parseFloat(input) || 0);
+        }
+
+        function getMatrix(n) {
+            const matrix = [];
+            for (let i = 0; i < n; i++) {
+                matrix[i] = [];
+                for (let j = 0; j < n; j++) {
+                    const value = document.getElementById(`a${i}${j}`).value;
+                    matrix[i][j] = parseComplex(value);
+                }
+            }
+            return matrix;
+        }
+
+        function getResults(n) {
+            const results = [];
+            for (let i = 0; i < n; i++) {
+                const value = document.getElementById(`b${i}`).value;
+                results[i] = parseComplex(value);
+            }
+            return results;
+        }
+
+        function formMatrix(slau, type) {
+            const matrix = [];
+            for (let j = 0, J = slau.length; j < J; j++) {
+                matrix[j] = slau[j].slice(0, slau[j].length - 1);
+                if (type) matrix[j][type - 1] = slau[j][slau[j].length - 1];
+            }
+            return matrix;
+        }
+
+        function compDeterm(matrix) {
+            const J = matrix.length;
+            if (J == 2) {
+                return math.subtract(math.multiply(matrix[0][0], matrix[1][1]), math.multiply(matrix[0][1], matrix[1][0]));
+            }
+            let det = math.complex(0, 0);
+            for (let j = 0; j < J; j++) {
+                let minor = matrix.slice(1);
+                for (let k = 1; k < J; k++) {
+                    minor[k - 1] = matrix[k].slice(0, j).concat(matrix[k].slice(j + 1));
+                }
+                det = math.add(det, math.multiply(math.pow(-1, j), math.multiply(matrix[0][j], compDeterm(minor))));
+            }
+            return det;
+        }
+
+        function calcRoots(slau) {
+            const d0 = compDeterm(formMatrix(slau, 0));
+            if (math.abs(d0) < 1e-10) {
+                return 'Определитель матрицы равен нулю. Решений нет или их бесконечно много.';
+            }
+            const roots = [];
+            for (let j = 0, J = slau.length; j < J; j++) {
+                roots[j] = math.divide(compDeterm(formMatrix(slau, j + 1)), d0);
+            }
+            return roots;
+        }
+
+        function solveSystem() {
+            const n = document.getElementById('matrixSize').value;
+            const matrix = getMatrix(n);
+            const results = getResults(n);
+            const slau = [...matrix];
+            for (let i = 0; i < n; i++) {
+                slau[i].push(results[i]);
+            }
+            const roots = calcRoots(slau);
+            const output = document.getElementById('output');
+            if (typeof roots === 'string') {
+                output.innerHTML = roots;
+            } else {
+                output.innerHTML = 'Решения: ' + roots.map((s, i) => `x<sub>${i}</sub> = ${math.format(s, {precision: 14})}`).join(', ');
+            }
+        }
+
+        </script>
+</body>
+</html>
